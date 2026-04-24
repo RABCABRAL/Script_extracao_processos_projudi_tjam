@@ -1,0 +1,91 @@
+(async function() {
+    console.log("Injetando painel no quadro principal...");
+
+    // Tenta encontrar o melhor lugar para colocar o painel
+    let docAlvo;
+    try {
+        docAlvo = window.frames['mainFrame'].document;
+    } catch(e) {
+        docAlvo = document;
+    }
+
+    // Remove painel antigo se existir
+    const antigo = docAlvo.getElementById('extrator-projudi-painel');
+    if (antigo) antigo.remove();
+
+    // Cria o Painel
+    const painel = docAlvo.createElement('div');
+    painel.id = 'extrator-projudi-painel';
+    painel.style = "position: fixed; top: 10px; left: 10px; z-index: 999999; background: #f8f9fa; border: 3px solid #005aa7; padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); font-family: sans-serif; width: 250px;";
+    
+    painel.innerHTML = `
+        <h3 style="margin: 0 0 10px 0; color: #005aa7; font-size: 18px; border-bottom: 2px solid #005aa7; padding-bottom: 5px;">Extrator Projudi</h3>
+        <p id="txt-status" style="font-size: 14px; font-weight: bold; color: #333; margin: 10px 0;">Aguardando comando...</p>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <button id="btn-play" style="padding: 12px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 14px;">▶ INICIAR COLETA</button>
+            <button id="btn-save" style="padding: 10px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 6px; font-weight: bold;">💾 BAIXAR CSV</button>
+        </div>
+        <p style="margin-top: 15px; font-size: 13px; color: #444;">Processos coletados: <span id="num-total" style="font-weight: bold; font-size: 16px; color: #d9534f;">0</span></p>
+    `;
+    docAlvo.body.appendChild(painel);
+
+    let listaProcessos = new Set();
+    let executando = false;
+    const info = docAlvo.getElementById('txt-status');
+    const displayTotal = docAlvo.getElementById('num-total');
+
+    function getDocExtração() {
+        try {
+            return window.frames['mainFrame'].frames['userMainFrame'].document;
+        } catch (e) {
+            return docAlvo;
+        }
+    }
+
+    async function loop() {
+        if (!executando) return;
+
+        const d = getDocExtração();
+        const regex = /\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/g;
+        const matches = d.body.innerText.match(regex) || [];
+        
+        let antes = listaProcessos.size;
+        matches.forEach(m => listaProcessos.add(m));
+        
+        displayTotal.innerText = listaProcessos.size;
+        info.innerText = `Página lida! (+${listaProcessos.size - antes} novos)`;
+
+        const btnNext = d.querySelector('a.arrowNextOn') || d.querySelector('a[title*="próxima página"]');
+        
+        if (btnNext) {
+            info.innerText = "Carregando próxima...";
+            btnNext.click();
+            await new Promise(r => setTimeout(r, 4000));
+            if (executando) loop();
+        } else {
+            executando = false;
+            info.innerHTML = "<span style='color: green;'>FINALIZADO!</span>";
+            alert("Chegamos ao fim da lista!");
+        }
+    }
+
+    docAlvo.getElementById('btn-play').onclick = () => {
+        if (executando) return;
+        executando = true;
+        loop();
+    };
+
+    docAlvo.getElementById('btn-save').onclick = () => {
+        const dados = Array.from(listaProcessos);
+        if (dados.length === 0) return alert("Nada para salvar.");
+        const csv = "Numero_do_Processo\n" + dados.join("\n");
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = "processos_completos.csv";
+        a.click();
+    };
+
+    console.log("Painel injetado no mainFrame com sucesso!");
+})();
