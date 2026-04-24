@@ -1,0 +1,13 @@
+# Pastas de sessão local (CONTÉM COOKIES E DADOS SENSÍVEIS)
+projudi_session/
+.gemini/
+
+# Arquivos temporários e logs
+*.log
+numeros_processos.csv
+processos_completos_*.csv
+processos_oab_*.csv
+
+# Outros
+.DS_Store
+Thumbs.db
